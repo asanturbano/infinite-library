@@ -604,9 +604,12 @@ class MB{
       const nvec=ax[axI]; const nx=nvec.x*sgn, ny=nvec.y*sgn, nz=nvec.z*sgn;
       const s3=[0,0,0]; s3[axI]=sgn;
       const mk=(a,b)=>{ const t=[0,0,0]; t[axI]=sgn; t[tA]=a; t[tB]=b; return P(t[0],t[1],t[2]); };
+      // tangent-pair parity differs per axis: (0,1) is cyclic for axis 2,
+      // but (2,1) and (0,2) are anti-cyclic for axes 0 and 1 — swap their branches
+      const cyc = (axI===2) ? (sgn>0) : (sgn<0);
       let pts;
-      if(sgn>0) pts=[mk(-1,-1),mk(1,-1),mk(1,1),mk(-1,1)];
-      else      pts=[mk(1,-1),mk(-1,-1),mk(-1,1),mk(1,1)];
+      if(cyc) pts=[mk(-1,-1),mk(1,-1),mk(1,1),mk(-1,1)];
+      else    pts=[mk(1,-1),mk(-1,-1),mk(-1,1),mk(1,1)];
       const w=hd[tA]/s, h=hd[tB]/s;
       this.quad(pts,[nx,ny,nz],[0,0,w,0,w,h,0,h],col);
     }
@@ -717,7 +720,8 @@ function emitBook(cx0,rowY,w,h,d,push,lean,F,rng){
   const byx=-u.x*sin, byy=cos, byz=-u.z*sin;
   const hw=w/2, hh=h/2, hd=d/2;
   const fOff=push, bOff=push-d;
-  const cxx=org.x+u.x*cx0, cyy=org.y+rowY, czz=org.z+u.z*cx0;
+  // 1.5mm lift keeps book bottoms clear of the coplanar shelf-board top
+  const cxx=org.x+u.x*cx0, cyy=org.y+rowY+0.0015, czz=org.z+u.z*cx0;
   // center = base + by*hh + n*(fOff-hd)
   const CX=cxx+byx*hh+n.x*(fOff-hd), CY=cyy+byy*hh, CZ=czz+byz*hh+n.z*(fOff-hd);
   const P=(sx,sy,sz)=>[
@@ -846,9 +850,9 @@ for(let bay=0;bay<BAYS;bay++){
 }
 
 {
-  const books=new THREE.Mesh(mbBooks.geom(),matBooks); scene.add(books);
-  const wood=new THREE.Mesh(mbWood.geom(),matWood); scene.add(wood);
-  const strips=new THREE.Mesh(mbStrip.geom(),matStrip); scene.add(strips);
+  const books=new THREE.Mesh(mbBooks.geom(),matBooks); books.name='books'; scene.add(books);
+  const wood=new THREE.Mesh(mbWood.geom(),matWood); wood.name='wood'; scene.add(wood);
+  const strips=new THREE.Mesh(mbStrip.geom(),matStrip); strips.name='strips'; scene.add(strips);
 }
 
 // ============================================================
@@ -1155,8 +1159,7 @@ addEventListener('resize',()=>{
 
 const _p=new THREE.Vector3(), _f=new THREE.Vector3(), _look=new THREE.Vector3();
 const clock=new THREE.Clock();
-renderer.setAnimationLoop(()=>{
-  const dt=Math.min(clock.getDelta(),0.05);
+function tick(dt){
   const fwd=keys['ArrowUp']||keys['KeyW'], back=keys['ArrowDown']||keys['KeyS'];
   targetV = fwd? 1.45 : back? -1.45 : 0;
   const rate=(fwd||back)? 2.3 : 0.55;
@@ -1175,6 +1178,9 @@ renderer.setAnimationLoop(()=>{
 
   camera.position.copy(_p);
   camera.lookAt(_p.x+_look.x,_p.y+_look.y,_p.z+_look.z);
+}
+renderer.setAnimationLoop(()=>{
+  tick(Math.min(clock.getDelta(),0.05));
   renderer.render(scene,camera);
 });
 </script>
